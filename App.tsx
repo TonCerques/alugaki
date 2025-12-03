@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppView, Profile, KycStatus } from './types';
 import SplashScreen from './views/SplashScreen';
+import OnboardingScreen from './views/OnboardingScreen';
 import AuthScreen from './views/AuthScreen';
 import KycScreen from './views/KycScreen';
 import HomeScreen from './views/HomeScreen';
@@ -61,7 +63,7 @@ const App: React.FC = () => {
 
   const handleSplashFinish = useCallback(() => {
     if (session?.user?.id) {
-       // Profile loading is handled by useEffect, but if we are already loaded:
+       // Authenticated Flow
        if (userProfile) {
          if (userProfile.kycStatus === KycStatus.VERIFIED) {
            setCurrentView(AppView.HOME);
@@ -69,11 +71,21 @@ const App: React.FC = () => {
            setCurrentView(AppView.KYC);
          }
        }
-       // If profile is loading, the view will update when loadProfileAndRedirect finishes
     } else {
-      setCurrentView(AppView.AUTH);
+      // Unauthenticated Flow: Check Onboarding
+      const hasSeenOnboarding = localStorage.getItem('alugaki_onboarding_seen');
+      if (hasSeenOnboarding === 'true') {
+        setCurrentView(AppView.AUTH);
+      } else {
+        setCurrentView(AppView.ONBOARDING);
+      }
     }
   }, [session, userProfile]);
+
+  const handleOnboardingFinish = () => {
+    localStorage.setItem('alugaki_onboarding_seen', 'true');
+    setCurrentView(AppView.AUTH);
+  };
 
   const handleLogout = async () => {
     await auth.signOut();
@@ -91,6 +103,9 @@ const App: React.FC = () => {
     switch (currentView) {
       case AppView.SPLASH:
         return <SplashScreen onFinish={handleSplashFinish} />;
+      
+      case AppView.ONBOARDING:
+        return <OnboardingScreen onFinish={handleOnboardingFinish} />;
       
       case AppView.AUTH:
         return <AuthScreen />;

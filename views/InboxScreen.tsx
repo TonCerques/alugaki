@@ -2,17 +2,20 @@
 import React, { useState } from 'react';
 import { Profile, BookingStatus, KycStatus } from '../types';
 import { bookingTable, chatTable, itemTable, profileTable } from '../lib/db';
-import { MessageSquare, Clock, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { MessageSquare, Clock, ArrowUpRight, ArrowDownLeft, PlusCircle, Search } from 'lucide-react';
+import Button from '../components/Button';
 
 interface InboxScreenProps {
   currentUser: Profile;
   onChatSelect: (chatRoomId: string) => void;
+  onNavigateToCreate: () => void;
+  onNavigateToBrowse: () => void;
 }
 
-type InboxTab = 'traveling' | 'hosting';
+type InboxTab = 'orders' | 'requests'; // Pedidos (Eu alugando) vs Solicitações (Me alugando)
 
-const InboxScreen: React.FC<InboxScreenProps> = ({ currentUser, onChatSelect }) => {
-  const [activeTab, setActiveTab] = useState<InboxTab>('traveling');
+const InboxScreen: React.FC<InboxScreenProps> = ({ currentUser, onChatSelect, onNavigateToCreate, onNavigateToBrowse }) => {
+  const [activeTab, setActiveTab] = useState<InboxTab>('orders');
   
   // Get all rooms involving user
   const allRooms = chatTable.getRoomsByUser(currentUser.id);
@@ -22,26 +25,50 @@ const InboxScreen: React.FC<InboxScreenProps> = ({ currentUser, onChatSelect }) 
     const booking = bookingTable.findById(room.bookingId);
     if (!booking) return false;
     
-    if (activeTab === 'hosting') {
+    if (activeTab === 'requests') {
+      // Solicitações: Sou o DONO (Owner)
       return booking.ownerId === currentUser.id;
     } else {
+      // Pedidos: Sou o LOCATÁRIO (Renter)
       return booking.renterId === currentUser.id;
     }
   });
 
   const renderEmptyState = () => (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="w-16 h-16 bg-surface border border-gray-800 rounded-full flex items-center justify-center mb-4">
-        <MessageSquare size={24} className="text-gray-500" />
+    <div className="flex flex-col items-center justify-center py-12 text-center px-6 animate-fade-in-up">
+      <div className="w-20 h-20 bg-surface border border-gray-800 rounded-full flex items-center justify-center mb-6 shadow-lg">
+        {activeTab === 'requests' ? (
+          <PlusCircle size={32} className="text-primary" />
+        ) : (
+          <Search size={32} className="text-secondary" />
+        )}
       </div>
-      <h3 className="text-white font-medium mb-1">
-        {activeTab === 'hosting' ? 'Nenhuma solicitação' : 'Nenhuma viagem agendada'}
-      </h3>
-      <p className="text-sm text-gray-500 max-w-xs">
-        {activeTab === 'hosting' 
-          ? 'Quando alguém quiser alugar seus itens, aparecerá aqui.' 
-          : 'Vá para a aba Explorar para encontrar equipamentos.'}
-      </p>
+      
+      {activeTab === 'requests' ? (
+        <>
+          <h3 className="text-white text-lg font-bold mb-2">
+            Seu equipamento parado é dinheiro perdido.
+          </h3>
+          <p className="text-sm text-gray-400 max-w-xs mb-8 leading-relaxed">
+            Publique seu primeiro item agora e comece a faturar com aluguéis seguros.
+          </p>
+          <Button onClick={onNavigateToCreate} className="min-w-[160px]">
+            Anunciar Agora
+          </Button>
+        </>
+      ) : (
+        <>
+          <h3 className="text-white text-lg font-bold mb-2">
+            Nenhum pedido realizado
+          </h3>
+          <p className="text-sm text-gray-400 max-w-xs mb-8 leading-relaxed">
+            Explore nossa comunidade e encontre o equipamento perfeito para seu próximo projeto.
+          </p>
+          <Button variant="secondary" onClick={onNavigateToBrowse} className="min-w-[160px]">
+            Explorar Equipamentos
+          </Button>
+        </>
+      )}
     </div>
   );
 
@@ -52,24 +79,24 @@ const InboxScreen: React.FC<InboxScreenProps> = ({ currentUser, onChatSelect }) 
       {/* Tabs */}
       <div className="flex bg-surface p-1 rounded-xl mb-6 border border-gray-800">
         <button
-          onClick={() => setActiveTab('traveling')}
+          onClick={() => setActiveTab('orders')}
           className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-            activeTab === 'traveling' 
+            activeTab === 'orders' 
               ? 'bg-gray-700 text-white shadow-md' 
               : 'text-gray-400 hover:text-gray-200'
           }`}
         >
-          Viajando
+          Pedidos
         </button>
         <button
-          onClick={() => setActiveTab('hosting')}
+          onClick={() => setActiveTab('requests')}
           className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-            activeTab === 'hosting' 
+            activeTab === 'requests' 
               ? 'bg-primary text-white shadow-[0_0_10px_rgba(139,92,246,0.3)]' 
               : 'text-gray-400 hover:text-gray-200'
           }`}
         >
-          Hospedando
+          Solicitações
         </button>
       </div>
       
@@ -114,7 +141,7 @@ const InboxScreen: React.FC<InboxScreenProps> = ({ currentUser, onChatSelect }) 
               className="bg-surface p-4 rounded-xl border border-gray-800 active:scale-[0.98] transition-all cursor-pointer hover:border-gray-600 relative overflow-hidden group"
             >
               <div className="absolute top-0 right-0 p-2 opacity-50">
-                 {activeTab === 'hosting' ? <ArrowDownLeft size={16} className="text-primary"/> : <ArrowUpRight size={16} className="text-secondary"/>}
+                 {activeTab === 'requests' ? <ArrowDownLeft size={16} className="text-primary"/> : <ArrowUpRight size={16} className="text-secondary"/>}
               </div>
 
               <div className="flex justify-between items-start mb-3 pr-6">
@@ -138,7 +165,7 @@ const InboxScreen: React.FC<InboxScreenProps> = ({ currentUser, onChatSelect }) 
                 </span>
               </div>
               
-              {activeTab === 'hosting' && booking.status === BookingStatus.PENDING_APPROVAL && (
+              {activeTab === 'requests' && booking.status === BookingStatus.PENDING_APPROVAL && (
                 <div className="mt-3 flex items-center gap-1.5 text-xs text-yellow-500 font-medium animate-pulse">
                   <Clock size={12} />
                   <span>Ação Necessária</span>

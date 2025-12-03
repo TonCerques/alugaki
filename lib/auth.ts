@@ -1,3 +1,4 @@
+
 import { userTable, profileTable } from './db';
 
 const SESSION_KEY = 'neon_rental_session';
@@ -33,49 +34,71 @@ export const auth = {
       
       return { data: { user, session }, error: null };
     } catch (e: any) {
-      return { data: { user: null, session: null }, error: { message: e.message } };
+      console.error("SignUp Error:", e);
+      return { data: { user: null, session: null }, error: { message: e.message || String(e) } };
     }
   },
   
   signInWithPassword: async ({ email, password }: any) => {
     await new Promise(r => setTimeout(r, 600));
     
-    const user = userTable.findByEmail(email);
-    
-    if (!user || user.passwordHash !== password) {
-       return { error: { message: 'Invalid credentials' } };
+    try {
+      const user = userTable.findByEmail(email);
+      
+      if (!user) {
+         return { error: { message: 'Usuário não encontrado.' } };
+      }
+
+      if (user.passwordHash !== password) {
+         return { error: { message: 'Senha incorreta.' } };
+      }
+      
+      const session = { 
+        user: { id: user.id, email: user.email }, 
+        access_token: 'mock-jwt-token-' + Date.now() 
+      };
+      
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      notifySubscribers('SIGNED_IN', session);
+      
+      return { data: { session }, error: null };
+    } catch (e: any) {
+      console.error("SignIn Error:", e);
+      return { data: { session: null }, error: { message: e.message || 'Erro interno ao processar login.' } };
     }
-    
-    const session = { 
-      user: { id: user.id, email: user.email }, 
-      access_token: 'mock-jwt-token-' + Date.now() 
-    };
-    
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    notifySubscribers('SIGNED_IN', session);
-    
-    return { data: { session }, error: null };
   },
 
   signOut: async () => {
-    localStorage.removeItem(SESSION_KEY);
-    notifySubscribers('SIGNED_OUT', null);
-    return { error: null };
+    try {
+      localStorage.removeItem(SESSION_KEY);
+      notifySubscribers('SIGNED_OUT', null);
+      return { error: null };
+    } catch (e: any) {
+      return { error: { message: e.message } };
+    }
   },
 
   getSession: async () => {
-    const stored = localStorage.getItem(SESSION_KEY);
-    const session = stored ? JSON.parse(stored) : null;
-    return { data: { session } };
+    try {
+      const stored = localStorage.getItem(SESSION_KEY);
+      const session = stored ? JSON.parse(stored) : null;
+      return { data: { session } };
+    } catch {
+      return { data: { session: null } };
+    }
   },
 
   onAuthStateChange: (callback: AuthSubscriber) => {
     subscribers.push(callback);
     
     // Chamada inicial imediata
-    const stored = localStorage.getItem(SESSION_KEY);
-    const session = stored ? JSON.parse(stored) : null;
-    callback(session ? 'INITIAL_SESSION' : 'INITIAL_NO_SESSION', session);
+    try {
+      const stored = localStorage.getItem(SESSION_KEY);
+      const session = stored ? JSON.parse(stored) : null;
+      callback(session ? 'INITIAL_SESSION' : 'INITIAL_NO_SESSION', session);
+    } catch {
+      callback('INITIAL_NO_SESSION', null);
+    }
     
     return { 
       data: { 

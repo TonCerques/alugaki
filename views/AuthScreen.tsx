@@ -44,8 +44,30 @@ const AuthScreen: React.FC = () => {
         if (error) throw error;
       }
     } catch (error: any) {
-      console.error('Auth error:', error);
-      setErrorMsg(error.message || 'Ocorreu um erro durante a autenticação.');
+      console.error('Auth error raw:', error);
+      
+      let msg = 'Ocorreu um erro desconhecido.';
+      
+      // Tratamento robusto para evitar [object Object]
+      if (typeof error === 'string') {
+        msg = error;
+      } else if (error?.message) {
+        if (typeof error.message === 'string') {
+          msg = error.message;
+        } else {
+          msg = JSON.stringify(error.message);
+        }
+      } else {
+        try {
+          msg = JSON.stringify(error);
+          if (msg === '{}') msg = 'Erro de conexão ou servidor.';
+        } catch {
+          msg = 'Erro interno.';
+        }
+      }
+      
+      // Remover aspas extras se for JSON stringificado
+      setErrorMsg(msg.replace(/^"|"$/g, ''));
     } finally {
       setLoading(false);
     }
@@ -111,7 +133,7 @@ const AuthScreen: React.FC = () => {
           />
 
           {errorMsg && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2 text-red-400 text-sm">
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2 text-red-400 text-sm animate-pulse">
               <AlertCircle size={16} className="mt-0.5 shrink-0" />
               <span>{errorMsg}</span>
             </div>
@@ -147,9 +169,16 @@ const AuthScreen: React.FC = () => {
               {isLogin ? 'Cadastre-se' : 'Faça Login'}
             </button>
           </p>
-          <div className="mt-4 p-2 bg-surface/50 rounded text-xs text-gray-500">
-            <p>Admin: admin@teste.com / 123456</p>
-            <p>User: teste@teste.com / 123456</p>
+          <div className="mt-4 p-2 bg-surface/50 rounded text-xs text-gray-500 border border-white/5">
+            <p className="font-semibold text-gray-400 mb-1">Contas de Teste:</p>
+            <div className="grid grid-cols-2 gap-2 text-left px-2">
+              <div>
+                <span className="text-secondary">Dono:</span><br/>admin@teste.com<br/>123456
+              </div>
+              <div>
+                <span className="text-primary">Locatário:</span><br/>teste@teste.com<br/>123456
+              </div>
+            </div>
           </div>
         </div>
       </div>

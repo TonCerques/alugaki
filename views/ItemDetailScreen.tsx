@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Share2, Heart, ShieldCheck, MapPin, Calendar as CalendarIcon, ChevronRight, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, Share2, Heart, ShieldCheck, MapPin, Calendar as CalendarIcon, ChevronRight, ChevronLeft, Lock, CreditCard, AlertCircle } from 'lucide-react';
 import Button from '../components/Button';
+import Coachmark from '../components/Coachmark';
 import { itemTable, profileTable } from '../lib/db';
 import { Profile } from '../types';
 
@@ -22,10 +23,24 @@ const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({ itemId, onBack, cur
   const [startDate, setStartDate] = useState<string | null>(null); // ISO Date String
   const [endDate, setEndDate] = useState<string | null>(null);   // ISO Date String
 
+  // Educational States
+  const [showButtonCoachmark, setShowButtonCoachmark] = useState(false);
+  const [showDepositSheet, setShowDepositSheet] = useState(false);
+
+  // Check if owner
+  const isOwner = item ? currentUser.id === item.ownerId : false;
+
+  useEffect(() => {
+    // Coachmark logic: Show only once
+    const hasSeenCoachmark = localStorage.getItem('alugaki_coachmark_request');
+    if (!hasSeenCoachmark && !isOwner) {
+      setTimeout(() => setShowButtonCoachmark(true), 800);
+    }
+  }, [isOwner]);
+
   if (!item) return <div className="p-8 text-center text-white">Item não encontrado</div>;
 
   const owner = profileTable.find(item.ownerId);
-  const isOwner = currentUser.id === item.ownerId;
 
   // Derived Date Info
   const year = displayedDate.getFullYear();
@@ -103,10 +118,33 @@ const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({ itemId, onBack, cur
   const { days: rentalDays, total: rentalTotal } = calculateTotal();
   const isValidSelection = !!startDate && !!endDate;
 
+  const handleRequestClick = () => {
+    if (!isValidSelection) return;
+
+    // Smart Trigger: Check if user knows about deposit
+    const hasSeenDepositInfo = localStorage.getItem('alugaki_deposit_info_seen');
+    if (!hasSeenDepositInfo) {
+      setShowDepositSheet(true);
+    } else {
+      handleNextStep();
+    }
+  };
+
+  const handleDepositSheetDismiss = () => {
+    localStorage.setItem('alugaki_deposit_info_seen', 'true');
+    setShowDepositSheet(false);
+    handleNextStep();
+  };
+
   const handleNextStep = () => {
-    if (isValidSelection && startDate && endDate) {
+    if (startDate && endDate) {
       onRequestPress(startDate, endDate);
     }
+  };
+
+  const closeCoachmark = () => {
+    setShowButtonCoachmark(false);
+    localStorage.setItem('alugaki_coachmark_request', 'true');
   };
 
   return (
@@ -257,7 +295,56 @@ const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({ itemId, onBack, cur
              <p className="text-white font-mono font-medium">R$ {Math.round(item.replacementValue * 0.2)}</p>
            </div>
         </div>
+        
+        {isOwner && (
+          <div className="mb-4 bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg flex gap-2">
+            <AlertCircle size={16} className="text-yellow-500 shrink-0" />
+            <p className="text-xs text-yellow-200">
+              <strong>Modo Debug:</strong> Você é o dono deste item. O botão de aluguel está habilitado para testes.
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* COACHMARK OVERLAY */}
+      {showButtonCoachmark && (
+        <Coachmark 
+          text="O valor só é cobrado após o dono aceitar sua reserva. Pode solicitar sem medo!" 
+          onClose={closeCoachmark}
+          position="bottom"
+        />
+      )}
+
+      {/* SMART TRIGGER: DEPOSIT INFO SHEET */}
+      {showDepositSheet && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowDepositSheet(false)}></div>
+          <div className="bg-surface w-full max-w-md rounded-t-3xl p-6 border-t border-primary/20 relative z-10 animate-fade-in-up shadow-2xl">
+            <div className="w-12 h-1 bg-gray-700 rounded-full mx-auto mb-6"></div>
+            
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                <CreditCard size={20} className="text-blue-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Sobre o Pagamento</h3>
+            </div>
+
+            <p className="text-gray-300 text-sm leading-relaxed mb-6">
+              Para alugar, você precisará de um cartão de crédito para a <strong>Caução de Segurança</strong>. 
+              <br/><br/>
+              <span className="text-white font-medium flex items-center gap-2">
+                <Lock size={14} className="text-green-500" />
+                Não cobraremos nada agora.
+              </span>
+              <span className="block text-gray-400 mt-1">O pagamento só acontece após a aprovação do proprietário.</span>
+            </p>
+
+            <Button fullWidth onClick={handleDepositSheetDismiss}>
+              Entendi, continuar
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Sticky Bottom Action Bar with Realtime Calc */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#121214]/95 backdrop-blur-xl border-t border-white/10 z-50 pb-8 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
@@ -282,22 +369,17 @@ const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({ itemId, onBack, cur
             )}
           </div>
 
-          {isOwner ? (
-            <Button disabled variant="secondary" className="opacity-70 px-8">
-              Seu Item
-            </Button>
-          ) : (
-            <Button 
-              onClick={handleNextStep} 
-              disabled={!isValidSelection}
-              className={`px-6 transition-all min-w-[140px] ${isValidSelection ? 'shadow-[0_0_20px_rgba(139,92,246,0.4)] opacity-100' : 'opacity-50 grayscale'}`}
-            >
-              <span className="flex items-center justify-center gap-2">
-                Solicitar
-                <ChevronRight size={18} />
-              </span>
-            </Button>
-          )}
+          <Button 
+            onClick={handleRequestClick} 
+            disabled={!isValidSelection}
+            variant={isOwner ? "secondary" : "primary"}
+            className={`px-6 transition-all min-w-[140px] ${isValidSelection ? 'shadow-[0_0_20px_rgba(139,92,246,0.4)] opacity-100' : 'opacity-50 grayscale'}`}
+          >
+            <span className="flex items-center justify-center gap-2">
+              {isOwner ? 'Simular (Dev)' : 'Solicitar'}
+              <ChevronRight size={18} />
+            </span>
+          </Button>
         </div>
       </div>
     </div>

@@ -65,7 +65,9 @@ const SEED_ITEMS: Item[] = [
     minRentDays: 2,
     images: ['https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=1000'],
     isActive: true,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    views: 1240,
+    bookingsCount: 12
   },
   {
     id: 'item-2',
@@ -78,7 +80,9 @@ const SEED_ITEMS: Item[] = [
     minRentDays: 1,
     images: ['https://images.unsplash.com/photo-1473968512647-3e447244af8f?auto=format&fit=crop&q=80&w=1000'],
     isActive: true,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    views: 856,
+    bookingsCount: 5
   },
   {
     id: 'item-3',
@@ -91,7 +95,9 @@ const SEED_ITEMS: Item[] = [
     minRentDays: 1,
     images: ['https://images.unsplash.com/photo-1527011046414-4781f1f94f8c?auto=format&fit=crop&q=80&w=1000'],
     isActive: true,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    views: 432,
+    bookingsCount: 8
   }
 ];
 
@@ -139,6 +145,12 @@ const getDb = (): Schema => {
     db.items.forEach(item => {
       if (item.ownerId === 'user-demo') {
         item.ownerId = 'admin-user';
+        dirty = true;
+      }
+      // Migration: Add stats if missing
+      if (typeof item.views === 'undefined') {
+        item.views = Math.floor(Math.random() * 500);
+        item.bookingsCount = Math.floor(Math.random() * 10);
         dirty = true;
       }
     });
@@ -222,7 +234,9 @@ export const itemTable = {
       ...item,
       id: generateId(),
       isActive: true,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      views: 0,
+      bookingsCount: 0
     };
     db.items.unshift(newItem); // Adiciona no início
     saveDb(db);
@@ -236,6 +250,14 @@ export const itemTable = {
   },
   findByOwner: (ownerId: string) => {
     return getDb().items.filter(i => i.ownerId === ownerId);
+  },
+  update: (id: string, updates: Partial<Item>) => {
+    const db = getDb();
+    const index = db.items.findIndex(i => i.id === id);
+    if (index === -1) return null;
+    db.items[index] = { ...db.items[index], ...updates };
+    saveDb(db);
+    return db.items[index];
   }
 };
 
@@ -257,6 +279,12 @@ export const bookingTable = {
       createdAt: new Date().toISOString()
     };
     db.bookings.push(newBooking);
+    
+    // Increment stats
+    const itemIdx = db.items.findIndex(i => i.id === booking.itemId);
+    if (itemIdx !== -1) {
+      db.items[itemIdx].bookingsCount = (db.items[itemIdx].bookingsCount || 0) + 1;
+    }
     
     // Create linked Chat Room automatically
     const chatRoom: ChatRoom = {
@@ -376,6 +404,15 @@ export const bookingTable = {
       room.updatedAt = new Date().toISOString();
     }
     saveDb(db);
+  },
+  calculateRevenue: (userId: string) => {
+    const db = getDb();
+    const bookings = db.bookings.filter(b => 
+      b.ownerId === userId && 
+      (b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.ACTIVE || b.status === BookingStatus.COMPLETED)
+    );
+    // Simple 10% fee deduction logic simulation
+    return bookings.reduce((total, b) => total + (b.totalPrice * 0.9), 0);
   }
 };
 

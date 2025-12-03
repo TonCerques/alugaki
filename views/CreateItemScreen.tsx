@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Camera, DollarSign, Calendar, UploadCloud, ChevronLeft } from 'lucide-react';
+import { Camera, DollarSign, Calendar, UploadCloud, ChevronLeft, Lightbulb, X } from 'lucide-react';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import { ItemCategory, Profile } from '../types';
@@ -13,6 +13,7 @@ interface CreateItemScreenProps {
 
 const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSuccess }) => {
   const [loading, setLoading] = useState(false);
+  const [showPhotoTip, setShowPhotoTip] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -28,6 +29,14 @@ const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSucc
       ...prev,
       [e.target.name]: e.target.value
     }));
+  };
+
+  const handleImageInteraction = () => {
+    if (!formData.imageUrl && !showPhotoTip) {
+      setShowPhotoTip(true);
+      // Auto dismiss after 6 seconds
+      setTimeout(() => setShowPhotoTip(false), 6000);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,7 +69,7 @@ const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSucc
   };
 
   return (
-    <div className="pb-24 pt-4 px-4">
+    <div className="pb-24 pt-4 px-4 relative">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Anuncie seu Gear</h1>
         <p className="text-gray-400 text-sm">Comece a ganhar com seus equipamentos parados.</p>
@@ -69,7 +78,10 @@ const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSucc
       <form onSubmit={handleSubmit} className="space-y-6">
         
         {/* Image Upload Mock */}
-        <div className="border-2 border-dashed border-gray-700 rounded-2xl h-48 flex flex-col items-center justify-center bg-surface hover:border-primary/50 transition-colors group cursor-pointer relative overflow-hidden">
+        <div 
+          onClick={handleImageInteraction}
+          className="border-2 border-dashed border-gray-700 rounded-2xl h-48 flex flex-col items-center justify-center bg-surface hover:border-primary/50 transition-colors group cursor-pointer relative overflow-hidden"
+        >
           {formData.imageUrl ? (
              <img src={formData.imageUrl} className="absolute inset-0 w-full h-full object-cover opacity-60" />
           ) : null}
@@ -82,6 +94,23 @@ const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSucc
           </div>
         </div>
 
+        {/* SMART POP-UP (TOAST) */}
+        {showPhotoTip && (
+          <div className="bg-blue-500/10 border border-blue-500/30 p-3 rounded-xl flex items-start gap-3 animate-fade-in shadow-lg">
+            <div className="bg-blue-500/20 p-1.5 rounded-full shrink-0">
+              <Lightbulb size={16} className="text-blue-400" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-gray-200 leading-snug">
+                <span className="font-bold text-white">Dica de Mestre:</span> Fotos claras e bem iluminadas aumentam suas chances de alugar em <span className="text-green-400 font-bold">40%</span>.
+              </p>
+            </div>
+            <button type="button" onClick={() => setShowPhotoTip(false)} className="text-gray-500 hover:text-white">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         {/* Temporary URL Input for MVP */}
         <Input
           label="URL da Imagem (Para Demo)"
@@ -89,6 +118,7 @@ const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSucc
           placeholder="https://..."
           value={formData.imageUrl}
           onChange={handleChange}
+          onFocus={handleImageInteraction}
         />
 
         <Input

@@ -1,6 +1,7 @@
 
 export enum AppView {
   SPLASH = 'SPLASH',
+  ONBOARDING = 'ONBOARDING',
   AUTH = 'AUTH',
   KYC = 'KYC',
   HOME = 'HOME'
@@ -58,6 +59,9 @@ export interface Item {
   locationLng?: number;
   isActive: boolean;
   createdAt: string;
+  // Analytics
+  views?: number;
+  bookingsCount?: number;
 }
 
 export enum BookingStatus {
