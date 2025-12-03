@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Share2, Heart, ShieldCheck, MapPin, Calendar as CalendarIcon, ChevronRight, ChevronLeft, Lock, CreditCard, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Share2, Heart, ShieldCheck, MapPin, Calendar as CalendarIcon, ChevronRight, ChevronLeft, Lock, CreditCard, AlertCircle, Edit3 } from 'lucide-react';
 import Button from '../components/Button';
 import Coachmark from '../components/Coachmark';
 import { itemTable, profileTable } from '../lib/db';
@@ -11,9 +11,10 @@ interface ItemDetailScreenProps {
   onBack: () => void;
   currentUser: Profile;
   onRequestPress: (startDate: string, endDate: string) => void;
+  onEditItem?: (itemId: string) => void;
 }
 
-const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({ itemId, onBack, currentUser, onRequestPress }) => {
+const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({ itemId, onBack, currentUser, onRequestPress, onEditItem }) => {
   const item = itemTable.findById(itemId);
   
   // State for Calendar Navigation
@@ -119,6 +120,12 @@ const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({ itemId, onBack, cur
   const isValidSelection = !!startDate && !!endDate;
 
   const handleRequestClick = () => {
+    if (isOwner) {
+      // Edit Flow
+      if (onEditItem) onEditItem(item.id);
+      return;
+    }
+
     if (!isValidSelection) return;
 
     // Smart Trigger: Check if user knows about deposit
@@ -296,14 +303,6 @@ const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({ itemId, onBack, cur
            </div>
         </div>
         
-        {isOwner && (
-          <div className="mb-4 bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg flex gap-2">
-            <AlertCircle size={16} className="text-yellow-500 shrink-0" />
-            <p className="text-xs text-yellow-200">
-              <strong>Modo Debug:</strong> Você é o dono deste item. O botão de aluguel está habilitado para testes.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* COACHMARK OVERLAY */}
@@ -350,7 +349,7 @@ const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({ itemId, onBack, cur
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#121214]/95 backdrop-blur-xl border-t border-white/10 z-50 pb-8 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1">
-            {isValidSelection ? (
+            {isValidSelection && !isOwner ? (
               <div className="animate-fade-in-up">
                 <p className="text-xs text-gray-400 mb-0.5">{rentalDays} dias x R$ {item.dailyPrice}</p>
                 <div className="flex items-baseline gap-1">
@@ -371,13 +370,22 @@ const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({ itemId, onBack, cur
 
           <Button 
             onClick={handleRequestClick} 
-            disabled={!isValidSelection}
+            disabled={!isOwner && !isValidSelection}
             variant={isOwner ? "secondary" : "primary"}
-            className={`px-6 transition-all min-w-[140px] ${isValidSelection ? 'shadow-[0_0_20px_rgba(139,92,246,0.4)] opacity-100' : 'opacity-50 grayscale'}`}
+            className={`px-6 transition-all min-w-[140px] ${(isOwner || isValidSelection) ? 'shadow-[0_0_20px_rgba(139,92,246,0.4)] opacity-100' : 'opacity-50 grayscale'}`}
           >
             <span className="flex items-center justify-center gap-2">
-              {isOwner ? 'Simular (Dev)' : 'Solicitar'}
-              <ChevronRight size={18} />
+              {isOwner ? (
+                <>
+                  <Edit3 size={18} />
+                  Editar
+                </>
+              ) : (
+                <>
+                  Solicitar
+                  <ChevronRight size={18} />
+                </>
+              )}
             </span>
           </Button>
         </div>

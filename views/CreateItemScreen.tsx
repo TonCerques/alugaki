@@ -1,17 +1,19 @@
 
-import React, { useState } from 'react';
-import { Camera, DollarSign, Calendar, UploadCloud, ChevronLeft, Lightbulb, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Camera, DollarSign, Calendar, UploadCloud, ChevronLeft, Lightbulb, X, Save } from 'lucide-react';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { ItemCategory, Profile } from '../types';
+import { ItemCategory, Profile, Item } from '../types';
 import { itemTable } from '../lib/db';
 
 interface CreateItemScreenProps {
   userProfile: Profile;
   onSuccess: () => void;
+  onCancel?: () => void;
+  editingItem?: Item | null; // Se fornecido, ativa o modo de edição
 }
 
-const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSuccess }) => {
+const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSuccess, onCancel, editingItem }) => {
   const [loading, setLoading] = useState(false);
   const [showPhotoTip, setShowPhotoTip] = useState(false);
   const [formData, setFormData] = useState({
@@ -21,8 +23,23 @@ const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSucc
     dailyPrice: '',
     replacementValue: '',
     minRentDays: '1',
-    imageUrl: '' // In real app, this would be handled by file upload
+    imageUrl: ''
   });
+
+  // Pre-fill form if editing
+  useEffect(() => {
+    if (editingItem) {
+      setFormData({
+        title: editingItem.title,
+        description: editingItem.description,
+        category: editingItem.category,
+        dailyPrice: editingItem.dailyPrice.toString(),
+        replacementValue: editingItem.replacementValue.toString(),
+        minRentDays: editingItem.minRentDays.toString(),
+        imageUrl: editingItem.images[0] || ''
+      });
+    }
+  }, [editingItem]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData(prev => ({
@@ -34,7 +51,6 @@ const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSucc
   const handleImageInteraction = () => {
     if (!formData.imageUrl && !showPhotoTip) {
       setShowPhotoTip(true);
-      // Auto dismiss after 6 seconds
       setTimeout(() => setShowPhotoTip(false), 6000);
     }
   };
@@ -44,21 +60,30 @@ const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSucc
     setLoading(true);
 
     try {
-      // Simulate network
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 1000)); // Simulate network
 
-      itemTable.create({
-        ownerId: userProfile.id,
+      const commonData = {
         title: formData.title,
         description: formData.description,
         category: formData.category,
         dailyPrice: Number(formData.dailyPrice),
         replacementValue: Number(formData.replacementValue),
         minRentDays: Number(formData.minRentDays),
-        images: [formData.imageUrl || 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=1000'], // Fallback image
-        locationLat: 0, // Mock location
-        locationLng: 0
-      });
+        images: [formData.imageUrl || 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=1000'],
+      };
+
+      if (editingItem) {
+        // UPDATE MODE
+        itemTable.update(editingItem.id, commonData);
+      } else {
+        // CREATE MODE
+        itemTable.create({
+          ownerId: userProfile.id,
+          ...commonData,
+          locationLat: 0,
+          locationLng: 0
+        });
+      }
 
       onSuccess();
     } catch (err) {
@@ -69,10 +94,22 @@ const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSucc
   };
 
   return (
-    <div className="pb-24 pt-4 px-4 relative">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Anuncie seu Gear</h1>
-        <p className="text-gray-400 text-sm">Comece a ganhar com seus equipamentos parados.</p>
+    <div className="pb-24 pt-4 px-4 relative h-full bg-background overflow-y-auto custom-scrollbar">
+      {/* Header */}
+      <div className="mb-6 flex items-center gap-3">
+        {onCancel && (
+          <button onClick={onCancel} className="p-2 -ml-2 rounded-full hover:bg-white/10 text-gray-400 hover:text-white">
+            <ChevronLeft size={24} />
+          </button>
+        )}
+        <div>
+          <h1 className="text-2xl font-bold text-white">
+            {editingItem ? 'Editar Anúncio' : 'Anuncie seu Gear'}
+          </h1>
+          <p className="text-gray-400 text-sm">
+            {editingItem ? 'Atualize as informações do seu produto.' : 'Comece a ganhar com seus equipamentos parados.'}
+          </p>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -89,7 +126,7 @@ const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSucc
             <div className="w-12 h-12 bg-background rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-lg">
               <Camera className="text-primary" />
             </div>
-            <p className="text-sm font-medium text-white">Toque para enviar fotos</p>
+            <p className="text-sm font-medium text-white">Toque para alterar fotos</p>
             <p className="text-xs text-gray-500 mt-1">JPG, PNG (Max 5MB)</p>
           </div>
         </div>
@@ -191,10 +228,18 @@ const CreateItemScreen: React.FC<CreateItemScreenProps> = ({ userProfile, onSucc
           required
         />
 
-        <div className="pt-4">
+        <div className="pt-4 pb-8">
            <Button type="submit" fullWidth isLoading={loading}>
-             Publicar Anúncio
+             <div className="flex items-center gap-2">
+               {editingItem ? <Save size={20} /> : <UploadCloud size={20} />}
+               {editingItem ? 'Salvar Alterações' : 'Publicar Anúncio'}
+             </div>
            </Button>
+           {editingItem && onCancel && (
+             <Button type="button" variant="ghost" fullWidth onClick={onCancel} className="mt-2">
+               Cancelar
+             </Button>
+           )}
         </div>
 
       </form>

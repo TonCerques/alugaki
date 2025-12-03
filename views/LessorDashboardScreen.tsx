@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ArrowLeft, BarChart2, TrendingUp, Star, Eye, DollarSign, Edit2, PauseCircle, PlayCircle } from 'lucide-react';
+import { ArrowLeft, BarChart2, TrendingUp, Star, Eye, DollarSign, Edit2, PauseCircle, PlayCircle, Save, X } from 'lucide-react';
 import { Profile, Item } from '../types';
 import { itemTable, bookingTable } from '../lib/db';
 import Button from '../components/Button';
@@ -8,9 +8,10 @@ import Button from '../components/Button';
 interface LessorDashboardScreenProps {
   currentUser: Profile;
   onBack: () => void;
+  onEditItem?: (itemId: string) => void;
 }
 
-const LessorDashboardScreen: React.FC<LessorDashboardScreenProps> = ({ currentUser, onBack }) => {
+const LessorDashboardScreen: React.FC<LessorDashboardScreenProps> = ({ currentUser, onBack, onEditItem }) => {
   const [items, setItems] = useState<Item[]>(itemTable.findByOwner(currentUser.id));
   
   // Calculate KPIs
@@ -23,20 +24,18 @@ const LessorDashboardScreen: React.FC<LessorDashboardScreenProps> = ({ currentUs
   const lastMonthRevenue = totalRevenue * 0.8; 
   const growth = totalRevenue > 0 ? ((totalRevenue - lastMonthRevenue) / lastMonthRevenue * 100).toFixed(0) : 0;
 
-  const handleToggleStatus = (item: Item) => {
+  const handleToggleStatus = (e: React.MouseEvent, item: Item) => {
+    e.stopPropagation();
     const newItem = itemTable.update(item.id, { isActive: !item.isActive });
     if (newItem) {
       setItems(prev => prev.map(i => i.id === newItem.id ? newItem : i));
     }
   };
 
-  const handleEditPrice = (item: Item) => {
-    const newPriceStr = prompt("Novo valor da diária (R$):", item.dailyPrice.toString());
-    if (newPriceStr && !isNaN(Number(newPriceStr))) {
-      const newItem = itemTable.update(item.id, { dailyPrice: Number(newPriceStr) });
-      if (newItem) {
-        setItems(prev => prev.map(i => i.id === newItem.id ? newItem : i));
-      }
+  const handleEditClick = (e: React.MouseEvent, item: Item) => {
+    e.stopPropagation();
+    if (onEditItem) {
+      onEditItem(item.id);
     }
   };
 
@@ -132,40 +131,48 @@ const LessorDashboardScreen: React.FC<LessorDashboardScreenProps> = ({ currentUs
            <h3 className="text-white font-bold mb-4">Meus Anúncios</h3>
            <div className="space-y-3">
              {items.map(item => (
-               <div key={item.id} className="bg-surface border border-gray-800 rounded-xl p-3 flex gap-3 items-center group">
-                 <div className="w-16 h-16 bg-gray-900 rounded-lg overflow-hidden shrink-0 relative">
-                   <img src={item.images[0]} className={`w-full h-full object-cover ${!item.isActive ? 'grayscale opacity-50' : ''}`} />
-                   {!item.isActive && (
-                     <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                       <PauseCircle size={20} className="text-white" />
+                 <div key={item.id} className="bg-surface border border-gray-800 rounded-xl p-3 flex gap-3 items-center group shadow-sm transition-all hover:border-gray-600">
+                   <div className="w-16 h-16 bg-gray-900 rounded-lg overflow-hidden shrink-0 relative">
+                     <img src={item.images[0]} className={`w-full h-full object-cover transition-all ${!item.isActive ? 'grayscale opacity-40' : ''}`} />
+                     {!item.isActive && (
+                       <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
+                         <PauseCircle size={20} className="text-white drop-shadow-lg" />
+                       </div>
+                     )}
+                   </div>
+                   
+                   <div className="flex-1 min-w-0">
+                     <div className="flex items-center gap-2 mb-1">
+                       <h4 className={`text-sm font-bold truncate ${item.isActive ? 'text-white' : 'text-gray-500'}`}>{item.title}</h4>
+                       {!item.isActive && <span className="text-[10px] bg-yellow-500/20 text-yellow-500 px-1.5 rounded uppercase font-bold">Pausado</span>}
                      </div>
-                   )}
-                 </div>
-                 
-                 <div className="flex-1 min-w-0">
-                   <h4 className={`text-sm font-bold truncate ${item.isActive ? 'text-white' : 'text-gray-500'}`}>{item.title}</h4>
-                   <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
-                     <span className="flex items-center gap-1"><Eye size={10} /> {item.views || 0}</span>
-                     <span className="w-1 h-1 bg-gray-700 rounded-full"></span>
-                     <span>R$ {item.dailyPrice}/dia</span>
+                     
+                     <div className="flex items-center gap-2 text-xs text-gray-400">
+                       <span className="flex items-center gap-1"><Eye size={12} /> {item.views || 0}</span>
+                       <span className="w-1 h-1 bg-gray-700 rounded-full"></span>
+                       <span>R$ {item.dailyPrice}/dia</span>
+                     </div>
+                   </div>
+
+                   <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                           <button 
+                             onClick={(e) => handleToggleStatus(e, item)}
+                             title={item.isActive ? "Pausar anúncio" : "Ativar anúncio"}
+                             className={`p-2 rounded-lg transition-colors ${item.isActive ? 'bg-gray-800 text-gray-400 hover:text-yellow-500' : 'bg-green-500/10 text-green-500 hover:bg-green-500/20'}`}
+                           >
+                             {item.isActive ? <PauseCircle size={18} /> : <PlayCircle size={18} />}
+                           </button>
+                           <button 
+                             onClick={(e) => handleEditClick(e, item)}
+                             title="Editar informações"
+                             className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                           >
+                             <Edit2 size={18} />
+                           </button>
+                        </div>
                    </div>
                  </div>
-
-                 <div className="flex flex-col gap-2">
-                    <button 
-                      onClick={() => handleToggleStatus(item)}
-                      className={`p-2 rounded-lg transition-colors ${item.isActive ? 'bg-gray-800 text-gray-400 hover:text-yellow-500' : 'bg-green-500/10 text-green-500'}`}
-                    >
-                      {item.isActive ? <PauseCircle size={16} /> : <PlayCircle size={16} />}
-                    </button>
-                    <button 
-                       onClick={() => handleEditPrice(item)}
-                       className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white transition-colors"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                 </div>
-               </div>
              ))}
              {items.length === 0 && (
                <div className="text-center py-8 text-gray-500 text-sm bg-surface/30 rounded-xl border border-dashed border-gray-800">

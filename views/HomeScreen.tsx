@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Profile } from '../types';
+import { Profile, Item } from '../types';
+import { itemTable } from '../lib/db';
 import BottomNav from '../components/BottomNav';
 import BrowseScreen from './BrowseScreen';
 import CreateItemScreen from './CreateItemScreen';
@@ -11,6 +12,7 @@ import ChatScreen from './ChatScreen';
 import BookingReviewScreen from './BookingReviewScreen';
 import RequestSuccessScreen from './RequestSuccessScreen';
 import PaymentScreen from './PaymentScreen';
+import ReceiptScreen from './ReceiptScreen';
 import LessorDashboardScreen from './LessorDashboardScreen';
 import TutorialOverlay from '../components/TutorialOverlay';
 
@@ -20,7 +22,7 @@ interface HomeScreenProps {
 }
 
 type Tab = 'browse' | 'inbox' | 'create' | 'profile';
-type OverlayState = 'none' | 'details' | 'review' | 'success' | 'chat' | 'payment' | 'lessor_dashboard';
+type OverlayState = 'none' | 'details' | 'review' | 'success' | 'chat' | 'payment' | 'receipt' | 'lessor_dashboard' | 'edit_item';
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ userProfile, onLogout }) => {
   const [currentTab, setCurrentTab] = useState<Tab>('browse');
@@ -38,7 +40,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userProfile, onLogout }) => {
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem('alugaki_tutorial_seen');
     if (!hasSeenTutorial) {
-      // Delay slightly to let animations finish and UI settle
       setTimeout(() => setShowTutorial(true), 1000);
     }
   }, []);
@@ -53,6 +54,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userProfile, onLogout }) => {
     setSelectedItemId(itemId);
     setBookingDates(null); // Ensure fresh dates
     setOverlayState('details');
+  };
+
+  const handleEditItem = (itemId: string) => {
+    setSelectedItemId(itemId);
+    setOverlayState('edit_item');
   };
 
   const handleRequestPress = (startDate: string, endDate: string) => {
@@ -79,7 +85,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userProfile, onLogout }) => {
   };
 
   const handlePaymentSuccess = () => {
-    setOverlayState('chat'); // Return to chat after payment
+    setOverlayState('receipt');
+  };
+
+  const handleReceiptContinue = () => {
+    setOverlayState('chat');
   };
 
   const closeOverlay = () => {
@@ -93,7 +103,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userProfile, onLogout }) => {
   const renderContent = () => {
     switch (currentTab) {
       case 'browse':
-        return <BrowseScreen onItemPress={handleItemPress} />;
+        return <BrowseScreen onItemPress={handleItemPress} currentUser={userProfile} />;
       case 'inbox':
         return (
           <InboxScreen 
@@ -114,7 +124,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userProfile, onLogout }) => {
           />
         );
       default:
-        return <BrowseScreen onItemPress={handleItemPress} />;
+        return <BrowseScreen onItemPress={handleItemPress} currentUser={userProfile} />;
     }
   };
 
@@ -138,6 +148,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userProfile, onLogout }) => {
             onBack={closeOverlay}
             currentUser={userProfile}
             onRequestPress={handleRequestPress}
+            onEditItem={handleEditItem}
+          />
+        </div>
+      )}
+
+      {/* 1.5 Edit Item Screen */}
+      {overlayState === 'edit_item' && selectedItemId && (
+        <div className="fixed inset-0 z-50 bg-background">
+          <CreateItemScreen 
+            userProfile={userProfile}
+            editingItem={itemTable.findById(selectedItemId)}
+            onSuccess={closeOverlay}
+            onCancel={closeOverlay}
           />
         </div>
       )}
@@ -150,7 +173,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userProfile, onLogout }) => {
             startDate={bookingDates.start}
             endDate={bookingDates.end}
             currentUser={userProfile}
-            onBack={() => setOverlayState('details')} // Back to details
+            onBack={() => setOverlayState('details')}
             onConfirm={handleBookingConfirmed}
           />
         </div>
@@ -190,12 +213,24 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userProfile, onLogout }) => {
         </div>
       )}
 
+      {/* 5.5 Receipt Screen */}
+      {overlayState === 'receipt' && activeChatRoomId && (
+        <div className="fixed inset-0 z-50">
+          <ReceiptScreen
+            chatRoomId={activeChatRoomId}
+            currentUser={userProfile}
+            onContinue={handleReceiptContinue}
+          />
+        </div>
+      )}
+
       {/* 6. Lessor Dashboard */}
       {overlayState === 'lessor_dashboard' && (
         <div className="fixed inset-0 z-50">
           <LessorDashboardScreen
             currentUser={userProfile}
             onBack={closeOverlay}
+            onEditItem={handleEditItem}
           />
         </div>
       )}
